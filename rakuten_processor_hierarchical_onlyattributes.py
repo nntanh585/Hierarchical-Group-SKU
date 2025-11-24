@@ -2,8 +2,7 @@ import re
 import json
 import pandas as pd
 
-# --- HELPER FUNCTIONS ---
-
+# Helper functions
 def _read_json(json_file: str) -> dict:
     with open(json_file, 'r', encoding='utf-8') as f:
         return json.load(f)
@@ -100,8 +99,7 @@ def _transform_data_from_json(json_file: str) -> pd.DataFrame:
 
     return pd.DataFrame(result_list) if result_list else pd.DataFrame()
 
-# --- 2 CUSTOM TEXT GENERATION FUNCTIONS (CUSTOMIZED AS REQUESTED) ---
-
+# Text generation functions
 def _get_master_text(product_row: pd.Series) -> str:
     """
     Create text string for MASTER clustering.
