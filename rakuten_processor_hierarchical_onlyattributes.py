@@ -12,7 +12,7 @@ def _read_json(json_file: str) -> dict:
         return json.load(f)
 
 def _clean_text(text: str) -> str:
-    """Làm sạch văn bản cơ bản."""
+    """Clean up, normalize to lowercase and remove special characters"""
     if text is None:
         return ""
     text = str(text).lower()
@@ -24,7 +24,7 @@ def _clean_text(text: str) -> str:
 
 def _extract_adaptive_attributes(attributes_list: list) -> dict:
     """
-    Trích xuất thích ứng (adaptive) TẤT CẢ các cặp key-value.
+    Extract all adaptive key-value pairs.
     """
     result_dict = {}
     if not attributes_list:
@@ -34,7 +34,7 @@ def _extract_adaptive_attributes(attributes_list: list) -> dict:
         key = None
         value = None
 
-        # Case 1: Cấu trúc 'required_attributes'
+        # Case 1: Structure 'required_attributes'
         if 'name' in attr and 'value' in attr:
             key_raw = attr.get('name')
             value_list = attr.get('value', [])
@@ -45,7 +45,7 @@ def _extract_adaptive_attributes(attributes_list: list) -> dict:
                 if unit:
                     value = f"{value} {unit}"
 
-        # Case 2: Cấu trúc 'attribute_simples'
+        # Case 2: Structure 'attribute_simples'
         elif 'attributes' in attr and 'attribute_values' in attr:
             key_raw = attr.get('attributes', {}).get('name')
             value_raw = attr.get('attribute_values', {}).get('name')
@@ -60,7 +60,7 @@ def _extract_adaptive_attributes(attributes_list: list) -> dict:
 
 def _transform_data_from_json(json_file: str) -> pd.DataFrame:
     """
-    Đọc file JSON và làm phẳng dữ liệu.
+    Read JSON file and flatten the data.
     """
     full_json_data = _read_json(json_file)
     products_list = full_json_data.get('data', []) 
@@ -68,19 +68,19 @@ def _transform_data_from_json(json_file: str) -> pd.DataFrame:
     result_list = []
 
     for product_data in products_list:
-        # 1. Thông tin Cha
+        # 1. Parent information
         parent_id = product_data.get('id')
         parent_name = _clean_text(product_data.get('name'))
         parent_category = _clean_text(product_data.get('category', {}).get('name_en'))
         parent_short_desc = _clean_text(product_data.get('short_description'))
         
-        # Xử lý an toàn cho jan_info
+        # Safely handle jan_info
         jan_info = product_data.get('jan_info', {})
         jan_code = ""
         if isinstance(jan_info, dict):
             jan_code = str(jan_info.get('reason_no_code') or jan_info.get('code') or "")
 
-        # 2. Lặp qua các Con (SKUs)
+        # 2. Loop through Children (SKUs)
         skus_data = product_data.get('product_skus', {}).get('data', [])
         if skus_data:
             for sku in skus_data:
@@ -103,14 +103,14 @@ def _transform_data_from_json(json_file: str) -> pd.DataFrame:
 
     return pd.DataFrame(result_list) if result_list else pd.DataFrame()
 
-# --- 2 HÀM GET TEXT RIÊNG BIỆT (CUSTOM THEO YÊU CẦU) ---
+# --- 2 CUSTOM TEXT GENERATION FUNCTIONS (CUSTOMIZED AS REQUESTED) ---
 
 def _get_master_text(product_row: pd.Series) -> str:
     """
-    Tạo chuỗi text cho MASTER clustering.
-    Mục tiêu: Gom các biến thể (Màu/Size) về chung 1 nhóm.
-    Chiến lược: Chỉ lấy thông tin chung (Tên, Hãng, Model, Danh mục, JAN).
-                LOẠI BỎ SKU và các thuộc tính biến đổi.
+    Create text string for MASTER clustering.
+    Goal: Group variants (Color/Size) into the same group.
+    Strategy: Only take common information (Name, Brand, Model, Category, JAN).
+              EXCLUDE SKU and variant attributes.
     """
     name = product_row.get('product_name', '')
     category = product_row.get('category_name', '')
@@ -118,42 +118,42 @@ def _get_master_text(product_row: pd.Series) -> str:
     jan_infor = product_row.get('jan_infor', '')
     sku = product_row.get('seller_sku', '')
 
-    # Lấy attributes để tìm Brand/Model, nhưng không lấy hết
+    # Get attributes to find Brand/Model, but not all
     attributes_dict = product_row.get('attributes', {})
     
-    # Cố gắng tìm Brand và Model trong đống attributes hỗn độn
+    # Try to find Brand and Model in the messy attributes
     brand = ""
     model = ""
     
-    # Các từ khóa phổ biến để nhận diện Brand/Model (đã clean text)
+    # Common keywords to identify Brand/Model (cleaned text)
     for k, v in attributes_dict.items():
         if 'brand' in k or 'ブランド' in k: # Brand name
             brand = v
         if 'model' in k or '型番' in k: # Model number
             model = v
 
-    # Cấu trúc prompt cho Master (Không có SKU, không có Color/Size cụ thể)
+    # Prompt structure for Master (No SKU, no specific Color/Size)
     text = f"Product: {name}\nSKU: {sku}\nBrand: {brand}\nModel: {model}\nCategory: {category}\nJAN: {jan_infor}\nDescription: {short_description}"
     return text
 
 def _get_variant_text(product_row: pd.Series) -> str:
     """
-    Tạo chuỗi text cho VARIANT clustering.
-    Mục tiêu: Phân biệt sự khác nhau giữa các SKU trong cùng 1 nhóm Master.
-    Chiến lược: Tập trung vào SKU và TOÀN BỘ thuộc tính chi tiết.
+    Create text string for VARIANT clustering.
+    Goal: Differentiate between SKUs within the same Master group.
+    Strategy: Focus on SKU and ALL detailed attributes.
     """
-    # Vẫn cần tên để giữ ngữ cảnh (ví dụ phân biệt Áo vs Quần nếu lỡ Master gom sai)
-    # Nhưng trọng số chính sẽ nằm ở phần Details và SKU
+    # Still need the name to maintain context (e.g., distinguish Shirt vs Pants if Master grouping is incorrect)
+    # But the main weight will be on Details and SKU
     name = product_row.get('product_name', '')
     attributes_dict = product_row.get('attributes', {})
 
-    # Loại bỏ các key không mong muốn (như user yêu cầu)
+    # Remove unwanted keys (as requested by user)
     remove_keys = {'総個数', '総重量', '総容量'}
     filtered_attrs = {k: v for k, v in attributes_dict.items() if k not in remove_keys}
     
-    # Tạo chuỗi chi tiết thuộc tính
+    # Create attribute details string
     details = " | ".join([f"{k}: {v}" for k, v in filtered_attrs.items()])
 
-    # Cấu trúc prompt cho Variant (SKU và Details là quan trọng nhất)
+    # Prompt structure for Variant (SKU and Details are most important)
     text = f"Details: {details}\nContext: {name}"
     return text
