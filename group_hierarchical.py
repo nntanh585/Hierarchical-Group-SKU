@@ -1,14 +1,9 @@
-# Revised HierarchicalHdbscanAssigner
-# Professional version with full English documentation and improved structure.
-
-import json
-import os
 import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import hdbscan
 import faiss
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Tuple, Optional
 
 from rakuten_processor_hierarchical import (
     _transform_data_from_json,
