@@ -40,6 +40,18 @@ json_filename = "./data.json"
 assigner.build_initial_clusters(json_filename)
 
 df = _transform_data_from_json("./sample.json")
+variant_score = 0.999
+for index, row in df.iterrows():
+    master_id, variant_id = assigner.assign_new_product(
+        product_dict=row,
+        variant_score=variant_score
+    )
+    print(master_id, variant_id)
+
+assigner.df_master[['product_id','product_name','category_name','seller_sku','attributes','jan_infor','master_id','variant_id']].sort_values(by=['master_id', 'variant_id']).to_csv("result.csv")
+
+# More Different
+df = _transform_data_from_json("./sample_more_different.json")
 variant_score = 0.993
 for index, row in df.iterrows():
     master_id, variant_id = assigner.assign_new_product(
@@ -47,5 +59,6 @@ for index, row in df.iterrows():
         variant_score=variant_score
     )
     print(master_id, variant_id)
-    
-assigner.df_master[['product_id','product_name','category_name','seller_sku','attributes','jan_infor','master_id','variant_id']].sort_values(by=['master_id', 'variant_id']).to_csv("result.csv")
+
+assigner.df_master[['product_id','product_name','category_name','seller_sku','attributes','jan_infor','master_id','variant_id']].sort_values(by=['master_id', 'variant_id']).to_csv("result_moreDifferent.csv")
+
