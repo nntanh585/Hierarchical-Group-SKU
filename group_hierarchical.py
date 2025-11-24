@@ -24,9 +24,7 @@ class HierarchicalHdbscanAssigner:
     automatically grouping products into stable Master/Variant clusters.
     """
 
-    # ---------------------------------------------------------------
     # Initialization
-    # ---------------------------------------------------------------
     def __init__(
         self,
         embed_model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
@@ -35,7 +33,6 @@ class HierarchicalHdbscanAssigner:
         variant_similarity_threshold: float = 0.95,
     ):
         print(f"Initializing embedding model: {embed_model_name}...")
-
         self.embed_model_name = embed_model_name
         self.model: Optional[SentenceTransformer] = None
         self.min_cluster_size = min_cluster_size
@@ -50,18 +47,14 @@ class HierarchicalHdbscanAssigner:
 
         self._load_model()
 
-    # ---------------------------------------------------------------
     # Model Loading
-    # ---------------------------------------------------------------
     def _load_model(self):
         """Load the SBERT encoder used for vectorization."""
         print(f"Loading SBERT model: {self.embed_model_name} ...")
         self.model = SentenceTransformer(self.embed_model_name)
         print("Model loaded.")
 
-    # ---------------------------------------------------------------
     # Initial Clustering Pipeline
-    # ---------------------------------------------------------------
     def build_initial_clusters(self, json_file: str):
         """
         Perform a full offline bootstrap process:
@@ -71,17 +64,11 @@ class HierarchicalHdbscanAssigner:
           4. Build FAISS index for master retrieval
           5. For each master group, encode and cluster variants locally
         """
-
         print(f"--- Bootstrapping from {json_file} ---")
-
-        # ----------------------
         # Step 1: Load + Transform
-        # ----------------------
         df = _transform_data_from_json(json_file)
 
-        # ----------------------
         # Step 2: Encode Master Embeddings
-        # ----------------------
         print("Encoding master embeddings...")
         master_texts = df.apply(_get_master_text, axis=1).tolist()
         master_vecs = (
@@ -89,9 +76,7 @@ class HierarchicalHdbscanAssigner:
             .astype("float32")
         )
 
-        # ----------------------
         # Step 3: HDBSCAN Clustering
-        # ----------------------
         print("Running HDBSCAN for master clustering...")
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=self.min_cluster_size,
@@ -120,16 +105,12 @@ class HierarchicalHdbscanAssigner:
 
         print(f"Total Master Groups Identified: {self.next_master_id}")
 
-        # ----------------------
         # Step 4: Build FAISS index
-        # ----------------------
         print("Building FAISS index for masters...")
         self.master_index = faiss.IndexFlatIP(master_vecs.shape[1])
         self.master_index.add(master_vecs)
 
-        # ----------------------
         # Step 5: Variant Clustering (Per-group)
-        # ----------------------
         print("Clustering variants group-by-group...")
 
         variant_id_map = {}
@@ -185,9 +166,7 @@ class HierarchicalHdbscanAssigner:
 
         print("--- Bootstrap Complete ---")
 
-    # ---------------------------------------------------------------
     # Real-time Assignment for New Products
-    # ---------------------------------------------------------------
     def assign_new_product(
         self,
         product_dict: Dict,
@@ -210,9 +189,7 @@ class HierarchicalHdbscanAssigner:
 
         row = pd.Series(product_dict)
 
-        # ----------------------
         # Step 1: Master Assignment
-        # ----------------------
         m_text = _get_master_text(row)
         m_vec = self.model.encode([m_text], normalize_embeddings=True).astype("float32")
 
@@ -227,9 +204,7 @@ class HierarchicalHdbscanAssigner:
             self.next_master_id += 1
             self.variant_store[master_id] = []
 
-        # ----------------------
         # Step 2: Variant Assignment
-        # ----------------------
         v_text = _get_variant_text(row)
         v_vec = self.model.encode([v_text], normalize_embeddings=True).astype("float32")[0]
 
@@ -256,9 +231,7 @@ class HierarchicalHdbscanAssigner:
                 }
             )
 
-        # ----------------------
         # Step 3: Persist new entry
-        # ----------------------
         self.master_index.add(m_vec)  # Append master vector
 
         new_row = row.copy()
