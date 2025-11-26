@@ -56,4 +56,4 @@ for index, row in df.iterrows():
     print(master_id, variant_id)
 
 assigner.df_master.sort_values(by=['master_id', 'variant_id']).to_csv("./result_after_references.csv")
-df_transform_before.to_csv("./result_after.csv")
+_transform_data_from_dataframe(assigner.df_master).to_csv("./result_after.csv")
